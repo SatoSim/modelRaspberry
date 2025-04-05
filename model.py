@@ -8,24 +8,30 @@ MODEL_PATH = "best_float32.tflite"
 CONFIDENCE_THRESHOLD = 0.1
 DEBUG_MODE = True
 
-# ====== Load model ======
+# ====== CLASS NAMES ======
+CLASS_NAMES = {
+    0: "Satoshi",
+    1: "Alfredo"
+}
+
+# ====== Load TFLite model ======
 interpreter = Interpreter(model_path=MODEL_PATH)
 interpreter.allocate_tensors()
 
 input_details = interpreter.get_input_details()
 output_details = interpreter.get_output_details()
 
-# ====== Load image ======
+# ====== Load and preprocess image ======
 image = cv2.imread(IMAGE_PATH)
 if image is None:
-    print(f"❌ Could not load image '{IMAGE_PATH}'")
+    print(f"❌ Error: Could not load image '{IMAGE_PATH}'")
     exit()
 
 original_h, original_w = image.shape[:2]
 resized = cv2.resize(image, (640, 640))
 input_tensor = np.expand_dims(resized, axis=0).astype(np.float32) / 255.0
 
-# ====== Inference ======
+# ====== Run inference ======
 interpreter.set_tensor(input_details[0]['index'], input_tensor)
 interpreter.invoke()
 output = interpreter.get_tensor(output_details[0]['index'])[0]  # Shape: (n, 6)
@@ -39,22 +45,24 @@ for i, det in enumerate(output):
     if conf < CONFIDENCE_THRESHOLD:
         continue
 
-    # Scale boxes to original image size
+    # Scale to original image size
     x1 = int(x1 * original_w)
     y1 = int(y1 * original_h)
     x2 = int(x2 * original_w)
     y2 = int(y2 * original_h)
 
-    if DEBUG_MODE:
-        print(f"[{i}] x1: {x1}, y1: {y1}, x2: {x2}, y2: {y2}, conf: {conf:.2f}, class: {int(cls_id)}")
+    name = CLASS_NAMES.get(int(cls_id), f"ID {int(cls_id)}")
+    label = f"{name} {conf:.2f}"
 
-    label = f"ID {int(cls_id)} {conf:.2f}"
+    if DEBUG_MODE:
+        print(f"[{i}] x1: {x1}, y1: {y1}, x2: {x2}, y2: {y2}, conf: {conf:.2f}, class: {int(cls_id)} ({name})")
+
     color = (0, 255, 0)
     cv2.rectangle(image, (x1, y1), (x2, y2), color, 2)
     cv2.putText(image, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
     boxes_drawn += 1
 
-# ====== Save / show result ======
+# ====== Save and/or Show Result ======
 if boxes_drawn == 0:
     print("⚠️ No boxes passed confidence threshold.")
 else:
@@ -63,6 +71,7 @@ else:
 cv2.imwrite("output.jpg", image)
 print("🖼 Saved result to 'output.jpg'")
 
+# Optional display
 try:
     cv2.imshow("YOLOv8 Detection", image)
     cv2.waitKey(0)
