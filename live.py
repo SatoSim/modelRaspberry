@@ -3,15 +3,10 @@ import numpy as np
 from tflite_runtime.interpreter import Interpreter
 import time
 
-# ====== CONFIGURATION ======
+# ====== CONFIG ======
 MODEL_PATH = "best_float32.tflite"
 CONFIDENCE_THRESHOLD = 0.1
-CLASS_NAMES = {
-    0: "Satoshi",
-    1: "Alfredo"
-}
-DEBUG_MODE = True
-INPUT_SIZE = 640
+CLASS_NAMES = {0: "Satoshi", 1: "Alfredo"}
 
 # ====== Load model ======
 interpreter = Interpreter(model_path=MODEL_PATH)
@@ -19,13 +14,16 @@ interpreter.allocate_tensors()
 input_details = interpreter.get_input_details()
 output_details = interpreter.get_output_details()
 
-# ====== Open Pi Camera ======
+input_shape = input_details[0]['shape']
+INPUT_SIZE = input_shape[1]
+
+# ====== Start camera ======
 cap = cv2.VideoCapture(0)
 if not cap.isOpened():
-    print("❌ Could not open camera. Try using legacy camera stack.")
+    print("❌ Could not open camera.")
     exit()
 
-print("📷 Camera opened. Starting detection...")
+print("📷 Camera opened. Press 'q' to quit.")
 
 while True:
     ret, frame = cap.read()
@@ -37,41 +35,29 @@ while True:
     resized = cv2.resize(frame, (INPUT_SIZE, INPUT_SIZE))
     input_tensor = np.expand_dims(resized, axis=0).astype(np.float32) / 255.0
 
-    # Inference
     interpreter.set_tensor(input_details[0]['index'], input_tensor)
     interpreter.invoke()
     output = interpreter.get_tensor(output_details[0]['index'])[0]
 
-    boxes_drawn = 0
-    for i, det in enumerate(output):
+    for det in output:
         x1, y1, x2, y2, conf, cls_id = det
         if conf < CONFIDENCE_THRESHOLD:
             continue
 
-        # Scale coords
         x1 = int(x1 * original_w)
         y1 = int(y1 * original_h)
         x2 = int(x2 * original_w)
         y2 = int(y2 * original_h)
 
-        name = CLASS_NAMES.get(int(cls_id), f"ID {int(cls_id)}")
-        label = f"{name} {conf:.2f}"
+        label = f"{CLASS_NAMES.get(int(cls_id), f'ID {int(cls_id)}')} {conf:.2f}"
+        cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
-        if DEBUG_MODE:
-            print(f"[{i}] {label} at ({x1},{y1},{x2},{y2})")
+    cv2.imshow("Live Detection", frame)
 
-        color = (0, 255, 0)
-        cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
-        cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
-        boxes_drawn += 1
-
-    cv2.imshow("Live YOLOv8 Detection", frame)
-
-    # Press 'q' to quit and save last frame
-    key = cv2.waitKey(1) & 0xFF
-    if key == ord('q'):
+    if cv2.waitKey(1) & 0xFF == ord('q'):
         cv2.imwrite("last_frame.jpg", frame)
-        print("🖼 Saved 'last_frame.jpg' and exiting...")
+        print("🖼 Saved 'last_frame.jpg'. Exiting.")
         break
 
 cap.release()
