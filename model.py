@@ -4,7 +4,7 @@ import tensorflow as tf
 
 # ====== CONFIGURATION ======
 IMAGE_PATH = "image.jpg"
-MODEL_PATH = "best.tflite"
+MODEL_PATH = "best_float32.tflite"
 CONFIDENCE_THRESHOLD = 0.3
 INPUT_SIZE = 640
 
