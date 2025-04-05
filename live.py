@@ -13,10 +13,9 @@ interpreter = Interpreter(model_path=MODEL_PATH)
 interpreter.allocate_tensors()
 input_details = interpreter.get_input_details()
 output_details = interpreter.get_output_details()
-input_shape = input_details[0]['shape']
-INPUT_SIZE = input_shape[1]
+INPUT_SIZE = input_details[0]['shape'][1]
 
-# ====== Open camera ======
+# ====== Start camera ======
 cap = cv2.VideoCapture(0)
 if not cap.isOpened():
     print("❌ Could not open camera.")
@@ -30,10 +29,13 @@ while True:
         print("❌ Failed to grab frame")
         break
 
+    # ✅ Ensure 3-channel input
+    if len(frame.shape) == 2 or frame.shape[2] == 1:
+        frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
+
     original_h, original_w = frame.shape[:2]
     resized = cv2.resize(frame, (INPUT_SIZE, INPUT_SIZE))
-    input_tensor = resized.astype(np.float32) / 255.0
-    input_tensor = np.expand_dims(input_tensor, axis=0)  # shape: (1, H, W, 3)
+    input_tensor = np.expand_dims(resized.astype(np.float32) / 255.0, axis=0)
 
     interpreter.set_tensor(input_details[0]['index'], input_tensor)
     interpreter.invoke()

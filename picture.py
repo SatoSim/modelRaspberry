@@ -15,8 +15,7 @@ interpreter = Interpreter(model_path=MODEL_PATH)
 interpreter.allocate_tensors()
 input_details = interpreter.get_input_details()
 output_details = interpreter.get_output_details()
-input_shape = input_details[0]['shape']
-INPUT_SIZE = input_shape[1]
+INPUT_SIZE = input_details[0]['shape'][1]
 
 # ====== Capture image ======
 print("📷 Capturing one image...")
@@ -29,23 +28,26 @@ if not ret:
     print("❌ Failed to capture image.")
     exit()
 
+# ✅ Ensure 3-channel input
+if len(frame.shape) == 2 or frame.shape[2] == 1:
+    frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
+
 cv2.imwrite(IMAGE_PATH, frame)
 print(f"✅ Saved '{IMAGE_PATH}'")
 
-# ====== Preprocess image ======
+# ====== Preprocess ======
 original_h, original_w = frame.shape[:2]
 resized = cv2.resize(frame, (INPUT_SIZE, INPUT_SIZE))
-input_tensor = resized.astype(np.float32) / 255.0
-input_tensor = np.expand_dims(input_tensor, axis=0)  # shape: (1, H, W, 3)
+input_tensor = np.expand_dims(resized.astype(np.float32) / 255.0, axis=0)
 
 print("✅ Input tensor shape:", input_tensor.shape)
 
 # ====== Run inference ======
 interpreter.set_tensor(input_details[0]['index'], input_tensor)
 interpreter.invoke()
-output = interpreter.get_tensor(output_details[0]['index'])[0]  # shape: (n, 6)
+output = interpreter.get_tensor(output_details[0]['index'])[0]
 
-# ====== Parse results ======
+# ====== Draw detections ======
 for det in output:
     x1, y1, x2, y2, conf, cls_id = det
     if conf < CONFIDENCE_THRESHOLD:
@@ -61,7 +63,7 @@ for det in output:
     cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
 cv2.imwrite(OUTPUT_PATH, frame)
-print(f"🖼 Detection result saved as '{OUTPUT_PATH}'")
+print(f"🖼 Detection saved to '{OUTPUT_PATH}'")
 
 try:
     cv2.imshow("Detection Result", frame)
