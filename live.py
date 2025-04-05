@@ -13,11 +13,10 @@ interpreter = Interpreter(model_path=MODEL_PATH)
 interpreter.allocate_tensors()
 input_details = interpreter.get_input_details()
 output_details = interpreter.get_output_details()
-
 input_shape = input_details[0]['shape']
 INPUT_SIZE = input_shape[1]
 
-# ====== Start camera ======
+# ====== Open camera ======
 cap = cv2.VideoCapture(0)
 if not cap.isOpened():
     print("❌ Could not open camera.")
@@ -33,7 +32,8 @@ while True:
 
     original_h, original_w = frame.shape[:2]
     resized = cv2.resize(frame, (INPUT_SIZE, INPUT_SIZE))
-    input_tensor = np.expand_dims(resized, axis=0).astype(np.float32) / 255.0
+    input_tensor = resized.astype(np.float32) / 255.0
+    input_tensor = np.expand_dims(input_tensor, axis=0)  # shape: (1, H, W, 3)
 
     interpreter.set_tensor(input_details[0]['index'], input_tensor)
     interpreter.invoke()
@@ -53,7 +53,7 @@ while True:
         cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
         cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
-    cv2.imshow("Live Detection", frame)
+    cv2.imshow("Live YOLOv8 Detection", frame)
 
     if cv2.waitKey(1) & 0xFF == ord('q'):
         cv2.imwrite("last_frame.jpg", frame)
