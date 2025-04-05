@@ -1,15 +1,16 @@
 import cv2
 import numpy as np
-import tensorflow as tf
+from tflite_runtime.interpreter import Interpreter
 
 # ====== CONFIGURATION ======
 IMAGE_PATH = "image.jpg"
 MODEL_PATH = "best_float32.tflite"
 CONFIDENCE_THRESHOLD = 0.3
+IOU_THRESHOLD = 0.45
 INPUT_SIZE = 640
 
 # ====== Load TFLite model ======
-interpreter = tf.lite.Interpreter(model_path=MODEL_PATH)
+interpreter = Interpreter(model_path=MODEL_PATH)
 interpreter.allocate_tensors()
 
 input_details = interpreter.get_input_details()
@@ -43,21 +44,8 @@ for pred in output:
     confidences.append(float(conf))
     class_ids.append(int(cls))
 
-# ====== Non-max suppression ======
-indices = cv2.dnn.NMSBoxes(boxes, confidences, CONFIDENCE_THRESHOLD, 0.45)
+# ====== Apply NMS ======
+indices = cv2.dnn.NMSBoxes(boxes, confidences, CONFIDENCE_THRESHOLD, IOU_THRESHOLD)
 
-# ====== Draw results ======
+# ====== Draw boxes ======
 for i in indices.flatten():
-    x, y, w, h = boxes[i]
-    cls_id = class_ids[i]
-    conf = confidences[i]
-
-    label = f"ID {cls_id} {conf:.2f}"
-    color = (0, 255, 0)
-    cv2.rectangle(image, (x, y), (x + w, y + h), color, 2)
-    cv2.putText(image, label, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
-
-# ====== Show image ======
-cv2.imshow("YOLOv8 TFLite Detection", image)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
