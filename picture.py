@@ -2,13 +2,17 @@ import cv2
 import numpy as np
 from tflite_runtime.interpreter import Interpreter
 import time
+import os
 
 # ====== CONFIG ======
 MODEL_PATH = "best_float32.tflite"
 IMAGE_PATH = "captured.jpg"
 OUTPUT_PATH = "detection.jpg"
 CONFIDENCE_THRESHOLD = 0.1
-CLASS_NAMES = {0: "Satoshi", 1: "Alfredo"}
+CLASS_NAMES = {0: "Alfredo", 1: "Satoshi"}
+
+# ====== Check if GUI is available ======
+SHOW_GUI = "DISPLAY" in os.environ and os.environ["DISPLAY"]
 
 # ====== Load model ======
 interpreter = Interpreter(model_path=MODEL_PATH)
@@ -28,7 +32,7 @@ if not ret:
     print("❌ Failed to capture image.")
     exit()
 
-# ✅ Ensure 3-channel input
+# ✅ Ensure 3-channel
 if len(frame.shape) == 2 or frame.shape[2] == 1:
     frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
 
@@ -40,14 +44,12 @@ original_h, original_w = frame.shape[:2]
 resized = cv2.resize(frame, (INPUT_SIZE, INPUT_SIZE))
 input_tensor = np.expand_dims(resized.astype(np.float32) / 255.0, axis=0)
 
-print("✅ Input tensor shape:", input_tensor.shape)
-
-# ====== Run inference ======
+# ====== Inference ======
 interpreter.set_tensor(input_details[0]['index'], input_tensor)
 interpreter.invoke()
 output = interpreter.get_tensor(output_details[0]['index'])[0]
 
-# ====== Draw detections ======
+# ====== Draw results ======
 for det in output:
     x1, y1, x2, y2, conf, cls_id = det
     if conf < CONFIDENCE_THRESHOLD:
@@ -65,9 +67,9 @@ for det in output:
 cv2.imwrite(OUTPUT_PATH, frame)
 print(f"🖼 Detection saved to '{OUTPUT_PATH}'")
 
-try:
+if SHOW_GUI:
     cv2.imshow("Detection Result", frame)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
-except:
-    print("⚠️ GUI not supported — open 'detection.jpg'")
+else:
+    print("🧼 Skipped GUI display (headless mode)")

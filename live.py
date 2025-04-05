@@ -2,11 +2,15 @@ import cv2
 import numpy as np
 from tflite_runtime.interpreter import Interpreter
 import time
+import os
 
 # ====== CONFIG ======
 MODEL_PATH = "best_float32.tflite"
 CONFIDENCE_THRESHOLD = 0.1
-CLASS_NAMES = {0: "Satoshi", 1: "Alfredo"}
+CLASS_NAMES = {0: "Alfredo", 1: "Satoshi"}
+
+# ====== Check GUI ======
+SHOW_GUI = "DISPLAY" in os.environ and os.environ["DISPLAY"]
 
 # ====== Load model ======
 interpreter = Interpreter(model_path=MODEL_PATH)
@@ -21,7 +25,7 @@ if not cap.isOpened():
     print("❌ Could not open camera.")
     exit()
 
-print("📷 Camera opened. Press 'q' to quit.")
+print("📷 Live detection started. Press 'q' to quit.")
 
 while True:
     ret, frame = cap.read()
@@ -29,7 +33,6 @@ while True:
         print("❌ Failed to grab frame")
         break
 
-    # ✅ Ensure 3-channel input
     if len(frame.shape) == 2 or frame.shape[2] == 1:
         frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
 
@@ -55,12 +58,15 @@ while True:
         cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
         cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
-    cv2.imshow("Live YOLOv8 Detection", frame)
-
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        cv2.imwrite("last_frame.jpg", frame)
-        print("🖼 Saved 'last_frame.jpg'. Exiting.")
-        break
+    if SHOW_GUI:
+        cv2.imshow("Live YOLOv8 Detection", frame)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            cv2.imwrite("last_frame.jpg", frame)
+            print("🖼 Saved 'last_frame.jpg'. Exiting.")
+            break
+    else:
+        print("📷 Frame processed. No GUI display (headless mode).")
+        time.sleep(1)  # prevent CPU overload in headless mode
 
 cap.release()
 cv2.destroyAllWindows()
