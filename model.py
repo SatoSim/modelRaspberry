@@ -1,12 +1,16 @@
+import sys
 import cv2
 import numpy as np
+
+# 🔧 Add ONNX Runtime path (adjust this to match your Pi setup)
+sys.path.append("/home/siment1/Desktop/modelRaspberry/onnxruntime-linux-aarch64-1.16.3")
 import onnxruntime as ort
 
 # ====== CONFIGURATION ======
 IMAGE_PATH = "image.jpg"
 MODEL_PATH = "best.onnx"
 CONFIDENCE_THRESHOLD = 0.3
-IOU_THRESHOLD = 0.45  # For NMS
+IOU_THRESHOLD = 0.45
 INPUT_SIZE = (640, 640)
 
 # ====== HELPER: Non-max suppression ======
@@ -27,10 +31,10 @@ input_img = resized.transpose(2, 0, 1)[np.newaxis, :, :, :].astype(np.float32) /
 
 # ====== LOAD MODEL AND RUN INFERENCE ======
 session = ort.InferenceSession(MODEL_PATH, providers=["CPUExecutionProvider"])
-outputs = session.run(None, {"images": input_img})  # 'images' is the input name for YOLOv8 ONNX
+outputs = session.run(None, {"images": input_img})
 
 # ====== PARSE OUTPUTS ======
-predictions = outputs[0][0]  # Shape: (num_detections, 6)
+predictions = outputs[0][0]
 boxes, confidences, class_ids = [], [], []
 
 for pred in predictions:
@@ -48,7 +52,7 @@ for pred in predictions:
     confidences.append(float(conf))
     class_ids.append(int(cls))
 
-# ====== APPLY NON-MAX SUPPRESSION ======
+# ====== APPLY NMS ======
 indices = nms(boxes, confidences, IOU_THRESHOLD)
 
 # ====== DRAW BOXES ======
@@ -62,7 +66,7 @@ for i in indices:
     cv2.rectangle(image, (x, y), (x + w, y + h), color, 2)
     cv2.putText(image, label, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
-# ====== SHOW IMAGE ======
+# ====== DISPLAY IMAGE ======
 cv2.imshow("YOLOv8 ONNX Detection", image)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
