@@ -27,14 +27,26 @@ interpreter.set_tensor(input_details[0]['index'], input_tensor)
 interpreter.invoke()
 output = interpreter.get_tensor(output_details[0]['index'])[0]
 
-# ====== Parse results and draw boxes ======
-boxes, class_ids, confidences = [], [], []
+# ====== Parse predictions ======
+boxes, confidences, class_ids = [], [], []
+
 for pred in output:
-    x_center, y_center, w, h, conf, cls = pred
+    if len(pred) < 6:
+        continue
+
+    # YOLOv8 format: [x_center, y_center, w, h, obj_conf, class_0, class_1, ...]
+    x_center, y_center, w, h = pred[:4]
+    obj_conf = pred[4]
+    class_scores = pred[5:]
+
+    cls = np.argmax(class_scores)
+    class_conf = class_scores[cls]
+    conf = obj_conf * class_conf
 
     if conf < CONFIDENCE_THRESHOLD:
         continue
 
+    # Convert to (x, y, w, h) in original image scale
     x = int((x_center - w / 2) * original_w / INPUT_SIZE)
     y = int((y_center - h / 2) * original_h / INPUT_SIZE)
     width = int(w * original_w / INPUT_SIZE)
@@ -44,14 +56,21 @@ for pred in output:
     confidences.append(float(conf))
     class_ids.append(int(cls))
 
+# ====== Apply Non-Max Suppression ======
 indices = cv2.dnn.NMSBoxes(boxes, confidences, CONFIDENCE_THRESHOLD, IOU_THRESHOLD)
 
+# ====== Draw boxes ======
 for i in indices.flatten():
     x, y, w, h = boxes[i]
-    label = f"ID {class_ids[i]} {confidences[i]:.2f}"
-    cv2.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)
-    cv2.putText(image, label, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+    cls_id = class_ids[i]
+    conf = confidences[i]
 
+    label = f"ID {cls_id} {conf:.2f}"
+    color = (0, 255, 0)
+    cv2.rectangle(image, (x, y), (x + w, y + h), color, 2)
+    cv2.putText(image, label, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+
+# ====== Show image ======
 cv2.imshow("YOLOv8 TFLite Detection", image)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
