@@ -34,7 +34,7 @@ for pred in output:
     if len(pred) < 6:
         continue
 
-    # YOLOv8 format: [x_center, y_center, w, h, obj_conf, class_0, class_1, ...]
+    # YOLOv8 TFLite format: [x_center, y_center, w, h, obj_conf, class_scores...]
     x_center, y_center, w, h = pred[:4]
     obj_conf = pred[4]
     class_scores = pred[5:]
@@ -46,7 +46,7 @@ for pred in output:
     if conf < CONFIDENCE_THRESHOLD:
         continue
 
-    # Convert to (x, y, w, h) in original image scale
+    # Convert to corner coords and scale to original image size
     x = int((x_center - w / 2) * original_w / INPUT_SIZE)
     y = int((y_center - h / 2) * original_h / INPUT_SIZE)
     width = int(w * original_w / INPUT_SIZE)
@@ -60,7 +60,8 @@ for pred in output:
 indices = cv2.dnn.NMSBoxes(boxes, confidences, CONFIDENCE_THRESHOLD, IOU_THRESHOLD)
 
 # ====== Draw boxes ======
-for i in indices.flatten():
+for i in indices:
+    i = i[0] if isinstance(i, (list, tuple, np.ndarray)) else i
     x, y, w, h = boxes[i]
     cls_id = class_ids[i]
     conf = confidences[i]
