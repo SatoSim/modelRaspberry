@@ -27,7 +27,7 @@ interpreter.set_tensor(input_details[0]['index'], input_tensor)
 interpreter.invoke()
 output = interpreter.get_tensor(output_details[0]['index'])[0]
 
-# ====== Parse results ======
+# ====== Parse results and draw boxes ======
 boxes, class_ids, confidences = [], [], []
 for pred in output:
     x_center, y_center, w, h, conf, cls = pred
@@ -44,8 +44,14 @@ for pred in output:
     confidences.append(float(conf))
     class_ids.append(int(cls))
 
-# ====== Apply NMS ======
 indices = cv2.dnn.NMSBoxes(boxes, confidences, CONFIDENCE_THRESHOLD, IOU_THRESHOLD)
 
-# ====== Draw boxes ======
 for i in indices.flatten():
+    x, y, w, h = boxes[i]
+    label = f"ID {class_ids[i]} {confidences[i]:.2f}"
+    cv2.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)
+    cv2.putText(image, label, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+
+cv2.imshow("YOLOv8 TFLite Detection", image)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
