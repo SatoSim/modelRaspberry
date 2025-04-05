@@ -10,8 +10,8 @@ DEBUG_MODE = True
 
 # ====== CLASS NAMES ======
 CLASS_NAMES = {
-    0: "Satoshi",
-    1: "Alfredo"
+    0: "Alfredo",
+    1: "Satoshi"
 }
 
 # ====== Load TFLite model ======
